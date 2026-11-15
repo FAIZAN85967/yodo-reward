@@ -1,22 +1,16 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { CheckCircle2, ImagePlus, Loader2, X } from 'lucide-react';
 import Button from '@/components/ui/Button';
-import {
-  COIN_PURCHASE_STEP,
-  COIN_QUICK_PICKS,
-  MAX_SCREENSHOT_BYTES,
-  MIN_COIN_PURCHASE,
-  PAYMENT_SCREENSHOT_BUCKET,
-  coinsToRupees,
-} from '@/lib/constants';
+import { MAX_SCREENSHOT_BYTES, PAYMENT_SCREENSHOT_BUCKET } from '@/lib/constants';
 import { formatNumber } from '@/lib/format';
 import { getErrorMessage } from '@/lib/errors';
 import { supabase } from '@/lib/supabase';
 import { cardClass, inputClass, labelClass } from '@/lib/styles';
+import type { CoinPackage } from '@/lib/types';
 
 interface CoinRequestFormProps {
   userId: string;
-  onSubmitted: () => void;
+  pkg: CoinPackage;
 }
 
 const TXN_MIN = 4;
@@ -27,8 +21,7 @@ function buildScreenshotPath(userId: string, file: File): string {
   return `${userId}/${Date.now()}-${crypto.randomUUID()}.${ext}`;
 }
 
-export default function CoinRequestForm({ userId, onSubmitted }: CoinRequestFormProps) {
-  const [coinsInput, setCoinsInput] = useState('');
+export default function CoinRequestForm({ userId, pkg }: CoinRequestFormProps) {
   const [transactionId, setTransactionId] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -43,13 +36,8 @@ export default function CoinRequestForm({ userId, onSubmitted }: CoinRequestForm
     };
   }, [previewUrl]);
 
-  const coins = Number(coinsInput);
-  const coinsValid =
-    Number.isInteger(coins) && coins >= MIN_COIN_PURCHASE && coins % COIN_PURCHASE_STEP === 0;
-
   const handleFile = (selected: File | undefined) => {
     setError(null);
-    setSuccess(false);
     if (!selected) return;
     if (!selected.type.startsWith('image/')) {
       setError('Sirf image (photo) upload karein.');
@@ -70,13 +58,8 @@ export default function CoinRequestForm({ userId, onSubmitted }: CoinRequestForm
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
-    setSuccess(false);
 
     const cleanTxn = transactionId.trim();
-    if (!coinsValid) {
-      setError(`Coins ${formatNumber(MIN_COIN_PURCHASE)} ya us se zyada, aur ${COIN_PURCHASE_STEP} ke multiple mein likhein.`);
-      return;
-    }
     if (cleanTxn.length < TXN_MIN || cleanTxn.length > TXN_MAX) {
       setError(`Transaction ID ${TXN_MIN} se ${TXN_MAX} characters ka ho.`);
       return;
@@ -95,17 +78,15 @@ export default function CoinRequestForm({ userId, onSubmitted }: CoinRequestForm
       if (uploadError) throw uploadError;
 
       const { error: submitError } = await supabase.rpc('submit_coin_request', {
-        p_coins: coins,
+        p_package_id: pkg.id,
         p_transaction_id: cleanTxn,
         p_screenshot_path: path,
       });
       if (submitError) throw submitError;
 
-      setCoinsInput('');
       setTransactionId('');
       clearFile();
       setSuccess(true);
-      onSubmitted();
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -113,49 +94,33 @@ export default function CoinRequestForm({ userId, onSubmitted }: CoinRequestForm
     }
   };
 
+  if (success) {
+    return (
+      <section className={`${cardClass} text-center animate-pop`}>
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100">
+          <CheckCircle2 className="h-8 w-8 text-emerald-700" />
+        </div>
+        <h2 className="mt-4 text-lg font-bold text-stone-900">Request Sent, Waiting For Admin Approval</h2>
+        <p className="mt-2 text-sm text-stone-600">
+          Admin payment check karke approve karega, phir coins aap ke wallet mein add ho jayenge.
+        </p>
+        <Button variant="secondary" className="mt-5" onClick={() => setSuccess(false)}>
+          Naya Request Bhejein
+        </Button>
+      </section>
+    );
+  }
+
   return (
     <section className={cardClass}>
-      <h2 className="text-lg font-bold text-stone-900">Coins Ki Request Bhejein</h2>
-      <p className="mt-1 text-sm text-stone-600">Admin payment check karke aap ke coins add kar dega.</p>
+      <h2 className="text-lg font-bold text-stone-900">Payment Ka Screenshot Bhejein</h2>
+      <p className="mt-2 rounded-xl bg-gold-50 px-4 py-3 text-sm font-semibold text-stone-800">
+        Package: <span className="font-extrabold text-stone-900">{formatNumber(pkg.coins)} Coins</span>
+        {' '}for{' '}
+        <span className="font-extrabold text-stone-900">{formatNumber(pkg.rupees)} Rs</span>
+      </p>
 
       <form onSubmit={handleSubmit} className="mt-5 space-y-5" noValidate>
-        <div>
-          <label htmlFor="coins-amount" className={labelClass}>Kitnay Coins Chahiye?</label>
-          <input
-            id="coins-amount"
-            type="number"
-            inputMode="numeric"
-            min={MIN_COIN_PURCHASE}
-            step={COIN_PURCHASE_STEP}
-            value={coinsInput}
-            onChange={(e) => setCoinsInput(e.target.value)}
-            placeholder={formatNumber(MIN_COIN_PURCHASE)}
-            className={inputClass}
-          />
-          <div className="mt-3 flex flex-wrap gap-2">
-            {COIN_QUICK_PICKS.map((pick) => (
-              <button
-                key={pick}
-                type="button"
-                onClick={() => setCoinsInput(String(pick))}
-                className={`rounded-full border px-3.5 py-1.5 text-sm font-semibold transition ${
-                  coins === pick
-                    ? 'border-emerald-700 bg-emerald-700 text-white'
-                    : 'border-stone-300 bg-white text-stone-700 hover:border-emerald-400'
-                }`}
-              >
-                {formatNumber(pick)}
-              </button>
-            ))}
-          </div>
-          <p className="mt-3 rounded-xl bg-gold-50 px-4 py-3 text-sm font-semibold text-stone-800">
-            Total Payment:{' '}
-            <span className="text-base font-extrabold text-stone-900">
-              {coinsValid ? `${formatNumber(coinsToRupees(coins))} Rs` : '-'}
-            </span>
-          </p>
-        </div>
-
         <div>
           <label htmlFor="coins-txn" className={labelClass}>Transaction ID</label>
           <input
@@ -202,12 +167,6 @@ export default function CoinRequestForm({ userId, onSubmitted }: CoinRequestForm
         {error && (
           <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
             {error}
-          </p>
-        )}
-        {success && (
-          <p role="status" className="flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800 animate-pop">
-            <CheckCircle2 className="h-5 w-5" />
-            Request bhej di gayi hai. Admin approve karega to coins add ho jayenge.
           </p>
         )}
 

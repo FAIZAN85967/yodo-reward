@@ -3,7 +3,7 @@ import type { Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import type { Profile } from '@/lib/types';
 
-const PROFILE_COLUMNS = 'id, name, mobile, coins, created_at, welcome_bonus_pending';
+const PROFILE_COLUMNS = 'id, name, mobile, coins, created_at, welcome_bonus_pending, is_blocked';
 
 async function fetchProfile(userId: string): Promise<Profile | null> {
   const { data, error } = await supabase

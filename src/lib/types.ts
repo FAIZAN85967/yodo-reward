@@ -1,4 +1,4 @@
-export type PlayerPage = 'home' | 'coins' | 'leaderboard' | 'profile' | 'ludo';
+export type PlayerPage = 'home' | 'coins' | 'wallet' | 'leaderboard' | 'profile' | 'ludo';
 
 export interface Profile {
   id: string;
@@ -7,11 +7,30 @@ export interface Profile {
   coins: number;
   created_at: string;
   welcome_bonus_pending: boolean;
+  is_blocked: boolean;
 }
 
 export interface PaymentNumbers {
   jazzcash_number: string;
   easypaisa_number: string;
+  account_title: string;
+}
+
+export interface CoinPackage {
+  id: number;
+  rupees: number;
+  coins: number;
+  is_active: boolean;
+}
+
+export type WalletEntryKind = 'bonus' | 'approved' | 'pending' | 'rejected';
+
+export interface WalletEntry {
+  id: string;
+  kind: WalletEntryKind;
+  coins: number;
+  amount_rs: number | null;
+  created_at: string;
 }
 
 export type CoinRequestStatus = 'pending' | 'approved' | 'rejected';
@@ -40,6 +59,24 @@ export interface LeaderboardEntry {
   points: number;
   coins: number;
   is_me: boolean;
+}
+
+export interface AdminDashboardStats {
+  total_users: number;
+  total_coins_given: number;
+  pending_requests: number;
+  total_revenue_rs: number;
+}
+
+export interface AdminUser {
+  user_id: string;
+  user_name: string;
+  user_mobile: string;
+  coins: number;
+  total_bought_coins: number;
+  total_paid_rs: number;
+  joined_at: string;
+  is_blocked: boolean;
 }
 
 export interface AdminCoinRequest {

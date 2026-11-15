@@ -29,7 +29,7 @@ export default function PaymentNumbers() {
     (async () => {
       const { data, error } = await supabase
         .from('admin_settings')
-        .select('jazzcash_number, easypaisa_number')
+        .select('jazzcash_number, easypaisa_number, account_title')
         .eq('id', 1)
         .maybeSingle();
       if (!active) return;
